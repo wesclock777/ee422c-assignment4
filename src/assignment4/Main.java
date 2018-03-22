@@ -14,6 +14,8 @@ package assignment4;
 
 import java.util.Scanner;
 import java.io.*;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 
 /*
@@ -73,15 +75,14 @@ public class Main {
         while(true) {
         	String input = kb.nextLine();
         	String[] params = input.split(" ");
-        	System.out.println(params[0]);
         	if(params[0].trim().equals("quit")) {
         		System.out.println("End of simulation!");
         		break;
         	}
-        	if(params[0].trim().equals("show")) {
+        	else if(params[0].trim().equals("show")) {
         		Critter.displayWorld();
         	}
-        	if(params[0].trim().equals("step")) {
+        	else if(params[0].trim().equals("step")) {
         		if(params.length==1) {
         			Critter.worldTimeStep();
         		}
@@ -92,28 +93,49 @@ public class Main {
         			}
         		}
         	}
-        	if(params[0].trim().equals("seed")) {
+        	else if(params[0].trim().equals("seed")) {
         		Critter.setSeed(Long.parseLong(params[1].trim()));
         	}
-        	if(params[0].trim().equals("make")){
+        	else if(params[0].trim().equals("make")){
         		String name = params[1].trim();
-        		try {
-					Critter.makeCritter(name);
-				} 
-        		catch (InvalidCritterException e) {
-					e.printStackTrace();
-				}
+        		if(params.length==2) {
+        			try {
+    					Critter.makeCritter(name);
+    				} 
+            		catch (InvalidCritterException e) {
+            			System.out.println("error processing:"+input);
+    					e.printStackTrace();
+    				}
+        		}
+        		int count = 0;
+        		if(params.length>2) {
+        			count=Integer.parseInt(params[2].trim());
+        		}
+        		for(int i = 0; i<count; i++) {
+        			try {
+    					Critter.makeCritter(name);
+    				} 
+            		catch (InvalidCritterException e) {
+            			System.out.println("error processing:"+input);
+    					e.printStackTrace();
+    				}
+    			}
         	}
-        	if(params[0].trim().equals("stats")) {
+        	else if(params[0].trim().equals("stats")) {
         		String name = params[1].trim();
         		try {
+        			Method stats =Class.forName(myPackage+"."+name).getMethod("runStats", java.util.List.class);
 					java.util.List<Critter> instances = Critter.getInstances(name);
+					stats.invoke(null, instances);
 				} 
-        		catch (InvalidCritterException e) {
-					e.printStackTrace();
+        		catch (InvalidCritterException | ClassNotFoundException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException | SecurityException e) {
+					System.out.println("error processing: "+input);
 				}
         	}
-    
+        	else {
+        		System.out.println("invalid command: "+input);
+        	}
+        	
         		
         }
         

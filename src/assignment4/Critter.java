@@ -51,12 +51,61 @@ public abstract class Critter {
 	private int y_coord;
 	
 	protected final void walk(int direction) {
+		energy-=Params.walk_energy_cost;
+		move(direction,1);
 	}
 	
 	protected final void run(int direction) {
+		energy-=Params.run_energy_cost;
+		if(energy<=0) {
+			population.remove(this);
+			return;
+		}
+		move(direction,1);
+		move(direction,1);
 	}
 	
 	protected final void reproduce(Critter offspring, int direction) {
+		if(energy<Params.min_reproduce_energy) {
+			return;
+		}
+		else {
+			offspring.energy = energy/2;
+			offspring.x_coord = x_coord;
+			offspring.y_coord = y_coord;
+			offspring.move(direction, 1);
+			babies.add(offspring);
+			energy = energy-energy/2;
+		}
+	}
+	
+	private void move(int direction, int amount) {
+		for(int i=0; i<amount; i++) {
+			if(direction>0&&direction<4){
+				y_coord+=1;
+			}
+			if(direction>4) {
+				y_coord-=1;
+			}
+			if(direction>2&&direction<6){
+				x_coord-=1;
+			}
+			if(direction<2||direction>6) {
+				x_coord+=1;
+			}
+			if(x_coord>Params.world_width-1) {
+				x_coord=0;
+			}
+			if(y_coord>Params.world_height-1) {
+				y_coord=0;
+			}
+			if(x_coord<0) {
+				x_coord=Params.world_width-1;
+			}
+			if(y_coord<0) {
+				y_coord=Params.world_height-1;
+			}
+		}
 	}
 
 	public abstract void doTimeStep();
@@ -74,9 +123,15 @@ public abstract class Critter {
 	 */
 	public static void makeCritter(String critter_class_name) throws InvalidCritterException {
 		try {
-			Class c;
-			c = Class.forName(myPackage+"."+critter_class_name);
+			Class<?> c = Class.forName(myPackage+"."+critter_class_name);
 			Object b = c.newInstance();
+			if(b instanceof Critter) {
+				Critter bug = (Critter) b;
+				bug.x_coord= Critter.getRandomInt(Params.world_width);
+				bug.y_coord= Critter.getRandomInt(Params.world_height);
+				bug.energy = Params.start_energy;
+				population.add(bug);
+			}
 		} 
 		catch(Exception e) {
 			throw new InvalidCritterException("Error Class not found");
@@ -93,7 +148,7 @@ public abstract class Critter {
 	public static List<Critter> getInstances(String critter_class_name) throws InvalidCritterException {
 		List<Critter> result = new java.util.ArrayList<Critter>();
 		try {
-			Class query = Class.forName(myPackage+"."+critter_class_name);
+			Class<?> query = Class.forName(myPackage+"."+critter_class_name);
 			for(Critter bug: population) {
 				if(query.isInstance(bug)) {
 					result.add(bug);
@@ -192,8 +247,81 @@ public abstract class Critter {
 	}
 	
 	public static void worldTimeStep() {
+		// time step
+		List<Critter> moved = new java.util.ArrayList<Critter>();
+		List<Critter> newpopulation= new java.util.ArrayList<Critter>();
 		for(Critter c: population) {
 			c.doTimeStep();
+			if(c.energy>0) {
+				newpopulation.add(c);
+			}
+		}
+		population = newpopulation;
+		
+		// encounters
+		List<Critter> encountered= new java.util.ArrayList<Critter>();
+		for(Critter c: population) {
+			for(Critter b: population) {
+				if(!c.equals(b)&&c.y_coord==b.y_coord&&c.x_coord==b.x_coord&&(!encountered.contains(b))&&(!encountered.contains(c))){
+					encountered.add(c);
+					encountered.add(b);
+					encounter(c,b);
+				}
+			}
+		}
+		
+		// subtracting rest energy
+		List<Critter> newpopulation2= new java.util.ArrayList<Critter>();
+		for(Critter c: population) {
+			c.energy-=Params.rest_energy_cost;
+			if(c.energy>0) {
+				newpopulation2.add(c);
+			}
+		}
+		population = newpopulation2;
+		
+		// adding babies to world
+		for(Critter baby: babies) {
+			population.add(baby);
+		}
+		babies = new java.util.ArrayList<Critter>();
+		
+		// spawning additional algae
+		for(int i = 0; i<Params.refresh_algae_count; i++) {
+			try {
+				Critter.makeCritter("Algae");
+			} 
+			catch (InvalidCritterException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+		}
+		
+	}
+	
+	private static void encounter(Critter a, Critter b) {
+		boolean aattack = a.fight(b.toString());
+		boolean battack = b.fight(a.toString());
+		if(a.x_coord==b.x_coord&&a.y_coord==b.y_coord&&a.energy>0&&b.energy>0) {
+			int admg=0;
+			if(aattack==true) {
+				admg = Critter.getRandomInt(a.energy);
+			}
+			int bdmg=0;
+			if(battack==true) {
+				bdmg = Critter.getRandomInt(b.energy);
+			}
+			if(admg>=bdmg) {
+				a.energy+=b.energy/2;
+				b.energy=0;
+				System.out.println(a.toString()+" vs "+b.toString());
+			}
+			else {
+				b.energy+=a.energy/2;
+				a.energy=0;
+				System.out.println(b.toString()+" vs "+a.toString());
+			}
 		}
 	}
 	
