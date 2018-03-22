@@ -1,13 +1,9 @@
 package assignment4;
 /* CRITTERS Main.java
  * EE422C Project 4 submission by
- * Replace <...> with your actual data.
- * <Student1 Name>
- * <Student1 EID>
- * <Student1 5-digit Unique No.>
- * <Student2 Name>
- * <Student2 EID>
- * <Student2 5-digit Unique No.>
+ * Wesley Klock
+ * wtk332
+ * 15455
  * Slip days used: <0>
  * Fall 2016
  */
@@ -72,11 +68,11 @@ public class Main {
         /* Do not alter the code above for your submission. */
         /* Write your code below. */
         
+        // handling each element possible input command
         while(true) {
         	String input = kb.nextLine();
         	String[] params = input.split(" ");
         	if(params[0].trim().equals("quit")) {
-        		System.out.println("End of simulation!");
         		break;
         	}
         	else if(params[0].trim().equals("show")) {
@@ -87,14 +83,24 @@ public class Main {
         			Critter.worldTimeStep();
         		}
         		else {
-        			int count = Integer.parseInt(params[1].trim());
-        			for(int i = 0; i<count; i++) {
-        				Critter.worldTimeStep();
+        			try {
+        				int count = Integer.parseInt(params[1].trim());
+        				for(int i = 0; i<count; i++) {
+            				Critter.worldTimeStep();
+            			}
+        			}
+        			catch(Exception e){
+        				System.out.println("error processing:"+input);
         			}
         		}
         	}
         	else if(params[0].trim().equals("seed")) {
-        		Critter.setSeed(Long.parseLong(params[1].trim()));
+        		try {
+        			Critter.setSeed(Long.parseLong(params[1].trim()));
+        		}
+        		catch(Exception e) {
+        			System.out.println("error processing:"+input);
+        		}
         	}
         	else if(params[0].trim().equals("make")){
         		String name = params[1].trim();
@@ -104,12 +110,16 @@ public class Main {
     				} 
             		catch (InvalidCritterException e) {
             			System.out.println("error processing:"+input);
-    					e.printStackTrace();
     				}
         		}
         		int count = 0;
         		if(params.length>2) {
-        			count=Integer.parseInt(params[2].trim());
+        			try {
+        				count=Integer.parseInt(params[2].trim());
+        			}
+        			catch(NumberFormatException e){
+        				System.out.println("error processing:"+input);
+        			}
         		}
         		for(int i = 0; i<count; i++) {
         			try {
@@ -124,6 +134,7 @@ public class Main {
         	else if(params[0].trim().equals("stats")) {
         		String name = params[1].trim();
         		try {
+        			// using reflection to invoke runStats
         			Method stats =Class.forName(myPackage+"."+name).getMethod("runStats", java.util.List.class);
 					java.util.List<Critter> instances = Critter.getInstances(name);
 					stats.invoke(null, instances);

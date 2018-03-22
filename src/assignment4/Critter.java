@@ -1,13 +1,9 @@
 package assignment4;
 /* CRITTERS Critter.java
  * EE422C Project 4 submission by
- * Replace <...> with your actual data.
- * <Student1 Name>
- * <Student1 EID>
- * <Student1 5-digit Unique No.>
- * <Student2 Name>
- * <Student2 EID>
- * <Student2 5-digit Unique No.>
+ * Wesley Klock
+ * wtk332
+ * 15455
  * Slip days used: <0>
  * Fall 2016
  */
@@ -25,6 +21,8 @@ public abstract class Critter {
 	private static String myPackage;
 	private	static List<Critter> population = new java.util.ArrayList<Critter>();
 	private static List<Critter> babies = new java.util.ArrayList<Critter>();
+	// an array to store information about which Critters have moved
+	private static List<Critter> moved = new java.util.ArrayList<Critter>();
 
 	// Gets the package name.  This assumes that Critter and its subclasses are all in the same package.
 	static {
@@ -57,10 +55,6 @@ public abstract class Critter {
 	
 	protected final void run(int direction) {
 		energy-=Params.run_energy_cost;
-		if(energy<=0) {
-			population.remove(this);
-			return;
-		}
 		move(direction,1);
 		move(direction,1);
 	}
@@ -80,32 +74,35 @@ public abstract class Critter {
 	}
 	
 	private void move(int direction, int amount) {
-		for(int i=0; i<amount; i++) {
-			if(direction>0&&direction<4){
-				y_coord+=1;
-			}
-			if(direction>4) {
-				y_coord-=1;
-			}
-			if(direction>2&&direction<6){
-				x_coord-=1;
-			}
-			if(direction<2||direction>6) {
-				x_coord+=1;
-			}
-			if(x_coord>Params.world_width-1) {
-				x_coord=0;
-			}
-			if(y_coord>Params.world_height-1) {
-				y_coord=0;
-			}
-			if(x_coord<0) {
-				x_coord=Params.world_width-1;
-			}
-			if(y_coord<0) {
-				y_coord=Params.world_height-1;
+		if(!moved.contains(this)) {
+			for(int i=0; i<amount; i++) {
+				if(direction>0&&direction<4){
+					y_coord+=1;
+				}
+				if(direction>4) {
+					y_coord-=1;
+				}
+				if(direction>2&&direction<6){
+					x_coord-=1;
+				}
+				if(direction<2||direction>6) {
+					x_coord+=1;
+				}
+				if(x_coord>Params.world_width-1) {
+					x_coord=0;
+				}
+				if(y_coord>Params.world_height-1) {
+					y_coord=0;
+				}
+				if(x_coord<0) {
+					x_coord=Params.world_width-1;
+				}
+				if(y_coord<0) {
+					y_coord=Params.world_height-1;
+				}
 			}
 		}
+		moved.add(this);
 	}
 
 	public abstract void doTimeStep();
@@ -246,9 +243,12 @@ public abstract class Critter {
 		babies = new java.util.ArrayList<Critter>();
 	}
 	
+	/**
+	 * Moves all Critter through one timestep accounting for encounters, rest energy, and spawning aglae,
+	 * all in the correct order. Energy is checked in each intermediate step to remove dead Critters
+	 */
 	public static void worldTimeStep() {
 		// time step
-		List<Critter> moved = new java.util.ArrayList<Critter>();
 		List<Critter> newpopulation= new java.util.ArrayList<Critter>();
 		for(Critter c: population) {
 			c.doTimeStep();
@@ -284,7 +284,10 @@ public abstract class Critter {
 		for(Critter baby: babies) {
 			population.add(baby);
 		}
+		
+		// clearing babies and moved
 		babies = new java.util.ArrayList<Critter>();
+		moved = new java.util.ArrayList<Critter>();
 		
 		// spawning additional algae
 		for(int i = 0; i<Params.refresh_algae_count; i++) {
@@ -292,17 +295,38 @@ public abstract class Critter {
 				Critter.makeCritter("Algae");
 			} 
 			catch (InvalidCritterException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				// never occurs because algae is always a valid class
 			}
 			
 		}
 		
 	}
 	
+	/**
+	 * Helper method to assist worldTimeStep in handling encounters
+	 * @param a the first critter in this encounter
+	 * @param b the second critter in this encounter
+	 */
 	private static void encounter(Critter a, Critter b) {
 		boolean aattack = a.fight(b.toString());
 		boolean battack = b.fight(a.toString());
+		/* running away
+		if(aattack==false) {
+			if(!moved.contains(a)&&(a.validDirection()!=-1)) {
+				a.energy-=Params.walk_energy_cost;
+				a.move(a.validDirection(), 1);
+				return;
+			}
+		}
+		if(battack==false) {
+			if(!moved.contains(b)&&(b.validDirection()!=-1)) {
+				b.energy-=Params.walk_energy_cost;
+				b.move(b.validDirection(), 1);
+				return;
+			}
+		}*/
+		
+		// fighting occurs if they are still on the same space
 		if(a.x_coord==b.x_coord&&a.y_coord==b.y_coord&&a.energy>0&&b.energy>0) {
 			int admg=0;
 			if(aattack==true) {
@@ -315,16 +339,48 @@ public abstract class Critter {
 			if(admg>=bdmg) {
 				a.energy+=b.energy/2;
 				b.energy=0;
-				System.out.println(a.toString()+" vs "+b.toString());
 			}
 			else {
 				b.energy+=a.energy/2;
 				a.energy=0;
-				System.out.println(b.toString()+" vs "+a.toString());
 			}
 		}
 	}
 	
+	/**
+	 * Determines the best direction the Critter can move in
+	 * @return the direction easiest to go to, if no space return -1;
+	 */
+	public int validDirection() {
+		Critter a = this;
+		if(checkLocation(a.x_coord+1,a.y_coord)) {return 0;}
+		if(checkLocation(a.x_coord+1,a.y_coord+1)) {return 1;}
+		if(checkLocation(a.x_coord,a.y_coord+1)) {return 2;}
+		if(checkLocation(a.x_coord-1,a.y_coord+1)) {return 3;}
+		if(checkLocation(a.x_coord-1,a.y_coord)) {return 4;}
+		if(checkLocation(a.x_coord-1,a.y_coord-1)) {return 5;}
+		if(checkLocation(a.x_coord,a.y_coord-1)) {return 6;}
+		if(checkLocation(a.x_coord,a.y_coord-1)) {return 7;}
+		return -1;
+	}
+	/**
+	 * Check a given location to determine if a Critter is already there
+	 * @param x coordinate of location to check
+	 * @param y coordinate of location to check
+	 * @return true or false based on occupation
+	 */
+	public boolean checkLocation(int x, int y) {
+		for(Critter c: population) {
+			if(c.x_coord==x&&c.y_coord==y) {
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	/**
+	 * Displays the game world to System.out
+	 */
 	public static void displayWorld() {
 		String border = "+";
 		for(int i = 0; i < Params.world_width; i++) {
